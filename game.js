@@ -1,161 +1,137 @@
-//  ------------ Setup ------------
-window.focus;
-const SCREENWIDTH = window.innerWidth;
-const SCREENHEIGHT = window.innerHeight;
+const SCREENWIDTH = innerWidth;
+const SCREENHEIGHT = innerHeight;
 let gameCanvas = document.getElementById("gameCanvas");
 let c = gameCanvas.getContext("2d");
 gameCanvas.height = SCREENHEIGHT;
 gameCanvas.width = SCREENWIDTH;
-document.body.style.overflow = "hidden";
 
+var body = document.body;
+body.style.overflow = "hidden";
+
+let dx = 5;
+let dy = 5;
+
+let playerX = 950;
+let playerY = SCREENHEIGHT - 130;
 let playerWidth = 20;
 let playerHeight = 20;
-let playerX = gameCanvas.width / 2 - playerWidth / 2;
-let playerY = gameCanvas.height - playerHeight - SCREENHEIGHT * 0.12;
-let playerLives = 10;
-let score = 0;
-let playerSpeed = 5;
+let playerHP = 10;
+let playerScore = 0;
 
+let enemyWidth = 20;
+let enemyHeight = 20;
 let enemies = [];
-let enemyTypes = [
-  { width: 20, height: 20, speed: 3, health: 2 },
-  { width: 20, height: 20, speed: 2, health: 3 },
-  { width: 20, height: 20, speed: 4, health: 1 },
-  { width: 30, height: 30, speed: 1, health: 5 },
-];
+let attackingEnemies = new Set();
+let enemySpawnInterval;
+let animationId;
 
-class Enemy {
-  constructor(x, width, height, speed, health) {
-    this.x = x;
-    this.y = gameCanvas.height - height - SCREENHEIGHT * 0.12;
-    this.width = width;
-    this.height = height;
-    this.speed = speed;
-    this.health = health;
-    this.attackInterval = null;
-  }
+document.addEventListener("keydown", handleKeyPress);
 
-  attackPlayer() {
-    if (
-      playerX < this.x + this.width &&
-      playerX + playerWidth > this.x &&
-      playerY < this.y + this.height &&
-      playerY + playerHeight > this.y
-    ) {
-      playerLives--;
-      if (playerLives <= 0) {
-        alert("Game Over! Your score: " + score);
-        location.reload();
-      }
-    }
+function getRandomNumberBetween1And2() {
+  //Definierar funktion
+  return Math.floor(Math.random() * 2) + 1;
+}
+
+function handleKeyPress(event) {
+  switch (event.key) {
+    case "ArrowLeft":
+      attack("left");
+      break;
+    case "ArrowRight":
+      attack("right");
+      break;
   }
 }
 
-function generateEnemies() {
-  setInterval(() => {
-    let enemyType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-    let side = Math.floor(Math.random() * 2);
-    let x, y;
+function attack(direction) {
+  let attackX = playerX;
+  let attackY = playerY;
 
-    switch (side) {
-      case 1: // Right side
-        x = gameCanvas.width;
-        y = Math.random() * (gameCanvas.height - enemyType.height);
-        break;
-      case 2: // Left side
-        x = 0;
-        y = Math.random() * (gameCanvas.height - enemyType.height);
-        break;
-    }
+  switch (direction) {
+    case "left":
+      attackX -= 20;
+      break;
+    case "right":
+      attackX += 20;
+      break;
+  }
 
-    enemies.push(
-      new Enemy(
-        x,
-        enemyType.width,
-        enemyType.height,
-        enemyType.speed,
-        enemyType.health
-      )
+  for (let i = 0; i < enemies.length; i++) {
+    let enemy = enemies[i];
+    let distanceToEnemy = Math.sqrt(
+      Math.pow(enemy.x - attackX, 2) + Math.pow(enemy.y - attackY, 2)
     );
-  }, 2000);
-}
 
-generateEnemies();
+    if (distanceToEnemy <= 20) {
+      enemy.hp -= 1;
 
+      if (direction === "left") {
+        enemy.x -= 50;
+      } else if (direction === "right") {
+        enemy.x += 50;
+      }
 
-let lastArrowKey = null;
+      if (enemy.hp <= 0) {
+        enemies.splice(i, 1);
 
-function animate() {
-  requestAnimationFrame(animate); 
-  c.clearRect(0, 0, gameCanvas.width, gameCanvas.height); 
-
-  c.fillStyle = "blue";
-  c.fillRect(playerX, playerY, playerWidth, playerHeight);
-
-  window.addEventListener("keydown", function (e) {
-    switch (e.key) {
-      case "ArrowLeft":
-        lastArrowKey = "left";
-        initiateAttack(lastArrowKey);
-        break;
-      case "ArrowRight":
-        lastArrowKey = "right";
-        initiateAttack(lastArrowKey);
-        break;
-      case "ArrowUp":
-        lastArrowKey = "up";
-        initiateAttack(lastArrowKey);
-        break;
-      case "ArrowDown":
-        lastArrowKey = "down";
-        initiateAttack(lastArrowKey);
-        break;
-    }
-  });
-
-  // Draw enemies
-  enemies.forEach((enemy) => {
-    enemy.draw();
-    enemy.update();
-    enemy.attackPlayer(); // Check for player collision
-
-    // Check if player hits enemy
-    if (
-      playerX + playerWidth >= enemy.x &&
-      playerX <= enemy.x + enemy.width &&
-      playerY + playerHeight >= enemy.y &&
-      playerY <= enemy.y + enemy.height
-    ) {
-      // Player hits enemy
-      enemy.health--;
-      if (enemy.health <= 0) {
-        enemies.splice(enemies.indexOf(enemy), 1); // Remove the enemy
-        score++; // Increase score
+        if (playerScore < 19) playerScore += 1;
+        else showGameWonScreen();
       }
     }
-  });
-
-  // Display player lives and score
-  c.fillStyle = "black";
-  c.font = "20px Arial";
-  c.fillText("Lives: " + playerLives, 10, 30);
-  c.fillText("Score: " + score, 10, 60);
+  }
 }
 
-  // Check for enemy collisions and damage enemies if hit
-  enemies.forEach((enemy) => {
-    if (
-      attackX + playerWidth >= enemy.x &&
-      attackX <= enemy.x + enemy.width &&
-      attackY + playerHeight >= enemy.y &&
-      attackY <= enemy.y + enemy.height
-    ) {
-      // Player hits enemy
-      enemy.health--;
-      if (enemy.health <= 0) {
-        enemies.splice(enemies.indexOf(enemy), 1); // Remove the enemy
-        score++; // Increase score
-      }
+function enemyAttackPlayer() {
+  for (let enemy of enemies) {
+    let distanceToPlayerX = Math.abs(enemy.x - playerX);
+
+    if (distanceToPlayerX <= 50 && !attackingEnemies.has(enemy)) {
+      attackingEnemies.add(enemy);
+      setTimeout(() => {
+        let distanceToPlayerAfterDelay = Math.abs(enemy.x - playerX);
+        if (playerHP <= 0) {
+          showGameOverScreen();
+        } else if (distanceToPlayerAfterDelay <= 50) {
+          playerHP -= 1;
+        }
+        attackingEnemies.delete(enemy);
+      }, 400);
+    }
+  }
+}
+
+function showGameWonScreen() {
+  cancelAnimationFrame(animationId);
+
+  c.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+  c.font = "48px serif";
+  c.textAlign = "center";
+  c.fillText("Game Won", SCREENWIDTH / 2, SCREENHEIGHT / 2 - 50);
+
+  c.fillText("Press R to Restart", SCREENWIDTH / 2, SCREENHEIGHT / 2 + 50);
+
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "r") {
+      resetGame();
+    }
+  });
+}
+
+function showGameOverScreen() {
+  cancelAnimationFrame(animationId);
+
+  c.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+  c.font = "48px serif";
+  c.textAlign = "center";
+  c.fillText("Game Over", SCREENWIDTH / 2, SCREENHEIGHT / 2 - 50);
+
+  c.fillText("Press R to Restart", SCREENWIDTH / 2, SCREENHEIGHT / 2 + 50);
+
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "r") {
+      resetGame();
     }
   });
 }
@@ -166,5 +142,61 @@ function changeBackgroundImage(imagePath) {
   gameCanvas.style.backgroundRepeat = "no-repeat";
 }
 
-changeBackgroundImage("bakgrund.jpg");
+function spawnEnemies() {
+  let enemyX;
+  if (getRandomNumberBetween1And2() === 1) {
+    enemyX = SCREENWIDTH + 20;
+  } else {
+    enemyX = -20;
+  }
+
+  let enemyHP = Math.floor(Math.random() * 3) + 1;
+
+  enemies.push({ x: enemyX, y: SCREENHEIGHT - 130, hp: enemyHP });
+}
+
+function moveEnemies() {
+  for (let enemy of enemies) {
+    let distanceToPlayer = Math.abs(enemy.x - playerX);
+
+    if (distanceToPlayer > 30) {
+      if (enemy.x > playerX) {
+        enemy.x -= 5;
+      } else {
+        enemy.x += 5;
+      }
+    }
+  }
+}
+
+function resetGame() {
+  playerHP = 10;
+  playerScore = 0;
+  enemies = [];
+  attackingEnemies = new Set();
+  clearInterval(enemySpawnInterval);
+  enemySpawnInterval = setInterval(spawnEnemies, 2000);
+  animate();
+}
+
+function animate() {
+  animationId = requestAnimationFrame(animate);
+  c.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+  c.fillRect(playerX, playerY, playerWidth, playerHeight);
+
+  c.font = "48px serif";
+  c.fillText("Score: " + playerScore, 20, 50);
+  c.fillText("HP: " + playerHP, SCREENWIDTH - 150, 50);
+
+  moveEnemies();
+  enemyAttackPlayer();
+
+  for (let enemy of enemies) {
+    c.fillRect(enemy.x, enemy.y, enemyWidth, enemyHeight);
+  }
+}
+
+changeBackgroundImage("PNGs/bakgrund.jpg");
+enemySpawnInterval = setInterval(spawnEnemies, 2000);
 animate();
